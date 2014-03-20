@@ -153,6 +153,7 @@ static void        log_spinup      (DISKSTATS *ds);
 static char       *disk_name       (char *name);
 static void        phex            (const void *p, int len,
                                     const char *fmt, ...);
+static void        purge_cache     (char *name);
 
 /* global/static variables */
 IDLE_TIME *it_root;
@@ -316,6 +317,7 @@ int main(int argc, char *argv[])
             /* disk was spun down, thus it has just spun up */
             if (have_logfile) {
               log_spinup(ds);
+              purge_cache(ds->name);
             }
             ds->spinup = now;
           }
@@ -559,6 +561,28 @@ static void phex(const void *p, int len, const char *fmt, ...)
     pos += 16;
     buf += 16;
     len -= 16;
+  }
+}
+
+static void purge_cache(char *name)
+{
+  int fd, ret;
+
+  fd = open(name, O_RDONLY, 0);
+  if (fd < 0) {
+    perror("cannot open %s");
+    return;
+  }
+
+  /* the ioctl number is from util-linux, include/blkdev.h */
+  ret = ioctl(fd, /* BLKFLSBUF */ 4705, 0);
+  if (ret == -1) {
+    perror("cannot flush buffers for %s");
+  }
+
+  ret = close(fd);
+  if (ret == -1) {
+    perror("failed to close %s");
   }
 }
 
